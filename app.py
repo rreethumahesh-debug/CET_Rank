@@ -9,7 +9,7 @@ st.set_page_config(page_title="CET College Eligibility App", page_icon="🎓", l
 # =============================
 # Helpers
 # ======================([console.groq.com](https://console.groq.com/docs/quickstart?utm_source=chatgpt.com))"GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", None)
-    if not api_key:
+    if not CET_Rank:
         return None
     return Groq(api_key=CET_Rank)
 
