@@ -9,21 +9,18 @@ st.set_page_config(page_title="CET College Eligibility App", page_icon="🎓", l
 # =============================
 # Helpers
 # ======================([console.groq.com](https://console.groq.com/docs/quickstart?utm_source=chatgpt.com))"GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", None)
-    if not CET_Rank:
-        return None
-    return Groq(api_key=CET_Rank)
-
+if not CET_Rank:
+    return None
+return Groq(api_key=CET_Rank)
 
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [str(col).strip().lower().replace(" ", "_") for col in df.columns]
     return df
 
-
 def validate_cutoff_df(df: pd.DataFrame):
     required = {"college_name", "course", "city", "category", "cutoff_rank"}
     missing = required - set(df.columns)
     return sorted(list(missing))
-
 
 def get_eligible_colleges(df: pd.DataFrame, student_rank: int, student_category: str) -> pd.DataFrame:
     filtered = df[df["category"].astype(str).str.upper() == student_category.upper()].copy()
