@@ -1,5 +1,6 @@
 import io
 import os
+import json
 import pandas as pd
 import streamlit as st
 from groq import Groq
@@ -30,6 +31,40 @@ def validate_cutoff_df(df: pd.DataFrame):
     required_columns = {"college_name", "course", "city", "category", "cutoff_rank"}
     missing = required_columns - set(df.columns)
     return list(missing)
+
+
+def read_uploaded_file(uploaded_file) -> pd.DataFrame:
+    file_name = uploaded_file.name.lower()
+
+    if file_name.endswith(".csv"):
+        return pd.read_csv(uploaded_file)
+
+    elif file_name.endswith(".txt"):
+        # try comma-separated first
+        uploaded_file.seek(0)
+        try:
+            return pd.read_csv(uploaded_file)
+        except Exception:
+            uploaded_file.seek(0)
+            return pd.read_csv(uploaded_file, sep="\t")
+
+    elif file_name.endswith(".tsv"):
+        return pd.read_csv(uploaded_file, sep="\t")
+
+    elif file_name.endswith(".xlsx") or file_name.endswith(".xls"):
+        return pd.read_excel(uploaded_file)
+
+    elif file_name.endswith(".json"):
+        data = json.load(uploaded_file)
+        if isinstance(data, list):
+            return pd.DataFrame(data)
+        elif isinstance(data, dict):
+            return pd.DataFrame(data)
+        else:
+            raise ValueError("Unsupported JSON structure.")
+
+    else:
+        raise ValueError("Unsupported file type. Please upload CSV, TXT, TSV, XLSX, XLS, or JSON.")
 
 
 def get_eligible_colleges(df: pd.DataFrame, student_rank: int, student_category: str) -> pd.DataFrame:
@@ -114,24 +149,23 @@ Student question:
     return completion.choices[0].message.content
 
 
-# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant",
-            "content": "Upload the cutoff CSV, enter CET rank and category, view eligible colleges, and ask questions about a college.",
+            "content": "Upload the cutoff file, enter CET rank and category, view eligible colleges, and ask questions about a college.",
         }
     ]
 
 
 st.title("🎓 CET College Eligibility and College Chat App")
 st.write(
-    "Upload the cutoff CSV, enter student rank and category, get eligible colleges, "
+    "Upload the cutoff file, enter student rank and category, get eligible colleges, "
     "chat about a college, and download the eligible college list as CSV."
 )
 
-with st.expander("Expected CSV Format"):
-    st.write("Your CSV file must contain these columns:")
+with st.expander("Expected Data Format"):
+    st.write("Your uploaded file should contain these columns:")
     st.code("college_name, course, city, category, cutoff_rank", language="text")
 
     sample_csv = """college_name,course,city,category,cutoff_rank
@@ -143,10 +177,12 @@ NCET Bangalore,CSE,Bengaluru,SC,70000
     st.code(sample_csv, language="csv")
 
 
-# Sidebar
 with st.sidebar:
     st.header("Student Input")
-    uploaded_file = st.file_uploader("Upload Cutoff CSV", type=["csv"])
+    uploaded_file = st.file_uploader(
+        "Upload Cutoff File",
+        type=["csv", "txt", "tsv", "xlsx", "xls", "json"]
+    )
     student_rank = st.number_input("Enter CET Rank", min_value=1, step=1)
     student_category = st.selectbox("Select Category", ["GM", "OBC", "SC", "ST"])
     st.info("The final result can be downloaded as CSV.")
@@ -158,7 +194,7 @@ selected_college = None
 
 if uploaded_file is not None:
     try:
-        cutoff_df = pd.read_csv(uploaded_file)
+        cutoff_df = read_uploaded_file(uploaded_file)
         cutoff_df = normalize_columns(cutoff_df)
 
         missing_columns = validate_cutoff_df(cutoff_df)
@@ -168,7 +204,7 @@ if uploaded_file is not None:
             eligible_df = get_eligible_colleges(cutoff_df, int(student_rank), student_category)
 
     except Exception as e:
-        st.error(f"Error reading CSV file: {e}")
+        st.error(f"Error reading uploaded file: {e}")
 
 
 col1, col2 = st.columns([1.2, 1])
@@ -177,7 +213,7 @@ with col1:
     st.subheader("Eligible Colleges")
 
     if uploaded_file is None:
-        st.warning("Please upload the cutoff CSV first.")
+        st.warning("Please upload the cutoff file first.")
     elif cutoff_df is not None and eligible_df.empty:
         st.info("No eligible colleges found for this student rank and category.")
     else:
@@ -229,7 +265,7 @@ with col2:
 
         try:
             if cutoff_df is None:
-                raise ValueError("Please upload the cutoff CSV first.")
+                raise ValueError("Please upload the cutoff file first.")
 
             with st.chat_message("assistant"):
                 with st.spinner("Thinking..."):
@@ -259,6 +295,7 @@ st.code(
 streamlit
 pandas
 groq
+openpyxl
 """,
     language="text"
 )
