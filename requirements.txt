@@ -1,3 +1,4 @@
 streamlit
 pandas
 groq>=0.4.0
+pdfplumber
